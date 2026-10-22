@@ -21,7 +21,8 @@ xyno-guard keeps auto-save away from files it must never write:
 
   - dependency and standard-library sources (`~/.cargo/registry`,
     `~/.cargo/git`, `~/.rustup`, and `$CARGO_HOME` / `$RUSTUP_HOME`), which
-    are opened nomodifiable and readonly;
+    are opened nomodifiable and readonly (buffers already loaded when
+    `setup()` runs are locked too);
   - files that changed on disk behind the buffer's back (`git checkout`, a
     formatter in another pane, `sed -i`): the save is skipped and one
     warning is shown, instead of nvim's blocking W12 prompt;

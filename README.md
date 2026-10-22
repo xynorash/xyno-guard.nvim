@@ -57,7 +57,7 @@ None by default. If you want one for `save_all`:
 ## How it works
 
 - The file's mtime is recorded when a buffer is read or written (`BufReadPost`, `BufWritePost`, `BufFilePost`, `FileChangedShellPost`). `can_save()` compares it with the disk; on a mismatch the save is skipped and you get one warning per change (`:w!` keeps your buffer, `:e!` takes the disk version). A deleted file is not recreated.
-- Dependency and standard-library buffers are opened nomodifiable and readonly. `:set modifiable` lets you edit one on purpose, and it is still never auto-saved.
+- Dependency and standard-library buffers are opened nomodifiable and readonly. Buffers that were already loaded when `setup()` runs are locked the same way, but a plugin that loads late (the install above loads it on the first auto-save event) cannot lock a file before that, so use `event = "VeryLazy"` if you open dependency sources right at startup. `:set modifiable` lets you edit one on purpose, and it is still never auto-saved.
 - auto-save checks its condition when the event fires but writes up to a second later. With okuuva/auto-save.nvim the guard checks again on `User AutoSaveWritePre` and turns a refused write into a harmless one; a listener of `AutoSaveWritePost` can tell by the buffer still being `modified`.
 - `FileChangedShell` never prompts: unmodified buffers are reloaded, modified or deleted ones are left alone with a warning.
 - After an LSP edit that touches files other than the current one (rename, file rename, code actions) the other modified buffers are written, so disk and undo stay consistent.

@@ -297,6 +297,20 @@ describe("xyno-guard", function()
       H.eq(false, dg.can_save(buf))
     end)
 
+    it("8 setup() locks a dependency buffer that was loaded before it ran", function()
+      local ch = H.tmpdir()
+      env("CARGO_HOME", ch)
+      local path = ch .. "/registry/src/index-1/c-1.0.0/src/lib.rs"
+      write(path, "pub fn a() {}\n")
+      pcall(vim.api.nvim_del_augroup_by_name, "xyno_guard") -- as if the guard was not loaded yet
+      local buf = H.open(path)
+      H.eq(true, vim.bo[buf].modifiable)
+      H.eq(false, vim.bo[buf].readonly)
+      dg.setup()
+      H.eq(false, vim.bo[buf].modifiable)
+      H.eq(true, vim.bo[buf].readonly)
+    end)
+
     it("8 a buffer outside the dependency roots stays modifiable", function()
       local _, buf = open_file("x\n")
       H.eq(true, vim.bo[buf].modifiable)

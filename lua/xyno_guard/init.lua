@@ -209,13 +209,16 @@ function M.setup(_opts)
       end
     end,
   })
+  local function lock_dependency(buf)
+    if M.is_dependency(vim.api.nvim_buf_get_name(buf)) then
+      vim.bo[buf].modifiable = false
+      vim.bo[buf].readonly = true
+    end
+  end
   vim.api.nvim_create_autocmd("BufReadPost", {
     group = group,
     callback = function(ev)
-      if M.is_dependency(vim.api.nvim_buf_get_name(ev.buf)) then
-        vim.bo[ev.buf].modifiable = false
-        vim.bo[ev.buf].readonly = true
-      end
+      lock_dependency(ev.buf)
     end,
   })
   vim.api.nvim_create_autocmd("FileChangedShell", {
@@ -245,6 +248,9 @@ function M.setup(_opts)
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
     if vim.api.nvim_buf_is_loaded(buf) then
       record(buf)
+      if is_file_buf(buf) then
+        lock_dependency(buf)
+      end
     end
   end
 end
