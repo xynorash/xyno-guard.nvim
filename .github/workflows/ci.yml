@@ -1,0 +1,45 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Install Neovim 0.12
+        env:
+          NVIM_TAG: v0.12.5
+          NVIM_SHA256: bce0f56eda1f1b1db6eee8f4133d7a38813ea07933837dd1777411ca384c6875
+        run: |
+          curl -fsSL -o nvim.tar.gz "https://github.com/neovim/neovim/releases/download/${NVIM_TAG}/nvim-linux-x86_64.tar.gz"
+          echo "${NVIM_SHA256}  nvim.tar.gz" | sha256sum -c -
+          mkdir -p "$HOME/nvim"
+          tar -xzf nvim.tar.gz -C "$HOME/nvim" --strip-components=1
+          echo "$HOME/nvim/bin" >> "$GITHUB_PATH"
+
+      - name: Fetch auto-save.nvim (the specs drive a real auto-save plugin)
+        env:
+          AUTOSAVE_SHA: 9aabcb8396224dcbf8d51c0c1d620d88a46e89d7
+        run: |
+          mkdir -p tests/deps/auto-save.nvim
+          git -C tests/deps/auto-save.nvim init -q
+          git -C tests/deps/auto-save.nvim fetch -q --depth 1 https://github.com/okuuva/auto-save.nvim.git "$AUTOSAVE_SHA"
+          git -C tests/deps/auto-save.nvim checkout -q FETCH_HEAD
+
+      - name: Specs
+        run: nvim --headless --clean -l tests/run.lua
+
+      - name: Help tags build and the help page resolves
+        run: |
+          nvim --headless --clean -c "set rtp+=." -c "helptags doc" -c "help xyno-guard" -c "qa!"

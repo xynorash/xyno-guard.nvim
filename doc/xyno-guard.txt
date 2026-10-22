@@ -1,0 +1,136 @@
+*xyno-guard.txt*  Keep auto-save away from files it must never write
+
+                                                                  *xyno-guard*
+
+==============================================================================
+CONTENTS                                                 *xyno-guard-contents*
+
+  1. Introduction ........................ |xyno-guard-intro|
+  2. Requirements ........................ |xyno-guard-requirements|
+  3. Setup ............................... |xyno-guard-setup|
+  4. Options ............................. |xyno-guard-options|
+  5. Commands and keys ................... |xyno-guard-commands|
+  6. API ................................. |xyno-guard-api|
+  7. How it works ........................ |xyno-guard-how|
+  8. Platforms ........................... |xyno-guard-platforms|
+
+==============================================================================
+1. INTRODUCTION                                             *xyno-guard-intro*
+
+xyno-guard keeps auto-save away from files it must never write:
+
+  - dependency and standard-library sources (`~/.cargo/registry`,
+    `~/.cargo/git`, `~/.rustup`, and `$CARGO_HOME` / `$RUSTUP_HOME`), which
+    are opened nomodifiable and readonly;
+  - files that changed on disk behind the buffer's back (`git checkout`, a
+    formatter in another pane, `sed -i`): the save is skipped and one
+    warning is shown, instead of nvim's blocking W12 prompt;
+  - deleted files, which auto-save must not recreate;
+  - buffers that are not plain files, or are readonly.
+
+It also writes the other modified buffers after an LSP edit that touched
+files besides the current one (rename, file rename, code actions).
+
+It works with any auto-save plugin that accepts a `condition` function. The
+`AutoSaveWritePre` / `AutoSaveWritePost` hooks (|xyno-guard-how|) are the
+user events of okuuva/auto-save.nvim.
+
+Extracted from xynovim: https://github.com/xynorash/xynovim
+
+==============================================================================
+2. REQUIREMENTS                                         *xyno-guard-requirements*
+
+  - Neovim 0.12 or newer.
+  - An auto-save plugin to guard (optional; |xyno-guard-api| `save_all` and
+    the dependency protection work without one).
+
+==============================================================================
+3. SETUP                                                     *xyno-guard-setup*
+
+With lazy.nvim, wired to okuuva/auto-save.nvim: >lua
+
+  {
+    "okuuva/auto-save.nvim",
+    event = { "InsertLeave", "TextChanged", "TextChangedI" },
+    dependencies = { "xynorash/xyno-guard.nvim" },
+    opts = function()
+      require("xyno_guard").setup()
+      return { condition = require("xyno_guard").can_save }
+    end,
+  }
+<
+`setup()` must run before buffers matter, and it is safe to call again.
+
+==============================================================================
+4. OPTIONS                                                 *xyno-guard-options*
+
+`setup({opts})` takes a table. There are no options yet: the argument is
+accepted so that later versions can add some. No keymaps are set (the plugin
+defines none) and no commands are registered.
+
+==============================================================================
+5. COMMANDS AND KEYS                                      *xyno-guard-commands*
+
+None. The guard works through autocmds (group `xyno_guard`) and the functions
+in |xyno-guard-api|. A key for writing everything that may be written: >lua
+
+  vim.keymap.set("n", "<leader>W", require("xyno_guard").save_all)
+<
+==============================================================================
+6. API                                                         *xyno-guard-api*
+
+                                                            *xyno-guard.setup()*
+setup([{opts}])
+    Install the autocmds (group `xyno_guard`) and record the disk state of the
+    buffers that are already loaded.
+
+                                                         *xyno-guard.can_save()*
+can_save({buf})
+    May buffer {buf} be written now? Use it as the auto-save plugin's
+    `condition`. Returns false for non-file and readonly buffers, dependency
+    sources, deleted files, and files whose mtime differs from the one
+    recorded when the buffer was read or written (one warning per change).
+    Returns true for a buffer that was never read or written by this nvim (it
+    records the current state instead).
+
+                                                    *xyno-guard.is_dependency()*
+is_dependency({name})
+    Is the file {name} below `~/.cargo/registry`, `~/.cargo/git`, `~/.rustup`,
+    `$CARGO_HOME/registry`, `$CARGO_HOME/git` or `$RUSTUP_HOME`? The match is
+    case-insensitive on Windows and macOS.
+
+                                                         *xyno-guard.save_all()*
+save_all()
+    Write every loaded, modified, modifiable file buffer for which
+    |xyno-guard.can_save()| is true. It uses a plain `:write` (events fire).
+
+==============================================================================
+7. HOW IT WORKS                                                 *xyno-guard-how*
+
+  - |BufReadPost|, |BufWritePost|, |BufFilePost| and |FileChangedShellPost|
+    record the file's mtime in `b:xyno_guard_stamp`.
+  - `can_save()` compares it with the disk before every save.
+  - auto-save checks its `condition` when the event fires but writes up to a
+    second later. So on `User AutoSaveWritePre` the guard checks again and, for
+    a refused write, sets 'buftype' to "nowrite" (the write then fails
+    harmlessly); `User AutoSaveWritePost` restores it. A listener of
+    `AutoSaveWritePost` can tell a refused write: the buffer is still
+    'modified'.
+  - |FileChangedShell| never prompts: an unmodified buffer is reloaded (or
+    asked about when 'autoread' is off), a modified or deleted one is left
+    alone with one warning. Detecting the change is nvim's job (|:checktime|).
+  - After the first |LspAttach|, `vim.lsp.util.apply_workspace_edit` is wrapped:
+    when the edit touches a file other than the current buffer, `save_all()`
+    runs once the edit is applied.
+
+==============================================================================
+8. PLATFORMS                                              *xyno-guard-platforms*
+
+Linux: tested by the specs in this repository. Windows and macOS: the
+original spec for this code in xynovim was not among the files its platforms
+workflow skipped there, and that workflow passed; the specs of this repository
+have not been run on either, so treat both as unverified. Path comparison is
+case-insensitive and slash-normalised on both. The `~/.cargo` and `~/.rustup`
+roots are Rust-specific.
+
+vim:tw=78:ts=8:ft=help:norl:
