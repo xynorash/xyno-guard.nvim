@@ -580,7 +580,7 @@ describe("xyno-guard", function()
       cap.restore()
     end)
 
-    it("15 other reasons: 'ask' without autoread (with autoread nvim reloads without the event)", function()
+    it("15 other reasons: never 'ask' (a prompt); without autoread the buffer is left alone and marked stale", function()
       local path, buf = open_file()
       local seen = spy()
       local old = vim.o.autoread
@@ -596,7 +596,11 @@ describe("xyno-guard", function()
       external_write(path, "disk2\n")
       vim.cmd("checktime")
       H.eq(1, #seen)
-      H.eq("ask", seen[1].choice)
+      H.eq("", seen[1].choice, "no prompt")
+      H.wait_for(function()
+        return vim.b[buf].xyno_guard_state == "stale"
+      end, 2000, "buffer marked stale")
+      H.eq({ "disk1" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false), "left alone")
       H.ok(seen[1].reason ~= "conflict" and seen[1].reason ~= "deleted")
       vim.o.autoread = old
     end)

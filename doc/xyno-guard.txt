@@ -65,9 +65,28 @@ With lazy.nvim, wired to okuuva/auto-save.nvim: >lua
 ==============================================================================
 4. OPTIONS                                                 *xyno-guard-options*
 
-`setup({opts})` takes a table. There are no options yet: the argument is
-accepted so that later versions can add some. No keymaps are set (the plugin
-defines none) and no commands are registered.
+`setup({opts})` takes a table; invalid values are reported once and ignored,
+and every call starts from the defaults.
+
+  dependency_roots      {}          extra directories treated as dependency
+                                    sources
+  lock_dependencies     true        dependency buffers nomodifiable + readonly
+  compare               {size=true, inode=true, ctime=true}
+                                    compared besides the mtime
+  hash_max_bytes        262144      sha256 for files up to this size (0: off)
+  file_changed_shell    true        install the FileChangedShell handler
+  reload_unmodified     "autoread"  "autoread" | "always" | "never"
+  save_all_after_workspace_edit  true
+  nowrite_restore_ms    1000        fallback timer for buftype=nowrite
+  notify                true        true | false | function(msg, level)
+  highlights            true        window-local LineNr highlight
+  icons                 {dependency="DEP RO", stale="STALE", gone="GONE"}
+
+Highlight groups (linked by default): `XynoGuardDependency` (DiagnosticInfo),
+`XynoGuardStale` (DiagnosticWarn), `XynoGuardGone` (DiagnosticError).
+`User XynoGuardState` fires when a buffer's state changes. Statusline:
+`require("xyno_guard").statusline()` and `.statusline_hl()`. Health:
+`:checkhealth xyno_guard`. No keymaps are set and no commands registered.
 
 ==============================================================================
 5. COMMANDS AND KEYS                                      *xyno-guard-commands*
@@ -91,6 +110,8 @@ can_save({buf})
     `condition`. Returns false for non-file and readonly buffers, dependency
     sources, deleted files, and files whose mtime differs from the one
     recorded when the buffer was read or written (one warning per change).
+    mtime, size, inode and ctime are compared, and for small files the sha256:
+    a touch with identical bytes is not a change.
     Returns true for a buffer that was never read or written by this nvim (it
     records the current state instead).
 
@@ -99,6 +120,19 @@ is_dependency({name})
     Is the file {name} below `~/.cargo/registry`, `~/.cargo/git`, `~/.rustup`,
     `$CARGO_HOME/registry`, `$CARGO_HOME/git` or `$RUSTUP_HOME`? The match is
     case-insensitive on Windows and macOS.
+
+                                                           *xyno-guard.state()*
+state([{buf}])
+    "dependency", "stale", "gone" or nil. Re-reads the disk.
+
+                                                       *xyno-guard.statusline()*
+statusline([{buf}]), statusline_hl([{buf}])
+    Cached text ("" when not guarded) and its highlight group.
+
+                                                   *xyno-guard.restore_nowrite()*
+restore_nowrite(), stuck_nowrite()
+    Give back / list the buffers left in 'buftype' "nowrite" by a refused
+    auto-save.
 
                                                          *xyno-guard.save_all()*
 save_all()
@@ -109,17 +143,19 @@ save_all()
 7. HOW IT WORKS                                                 *xyno-guard-how*
 
   - |BufReadPost|, |BufWritePost|, |BufFilePost| and |FileChangedShellPost|
-    record the file's mtime in `b:xyno_guard_stamp`.
+    record the file's mtime in `b:xyno_guard_stamp` and size, inode, ctime and
+    hash in `b:xyno_guard_snap`.
   - `can_save()` compares it with the disk before every save.
   - auto-save checks its `condition` when the event fires but writes up to a
     second later. So on `User AutoSaveWritePre` the guard checks again and, for
     a refused write, sets 'buftype' to "nowrite" (the write then fails
-    harmlessly); `User AutoSaveWritePost` restores it. A listener of
+    harmlessly); `User AutoSaveWritePost` restores it, and so does the next
+    event-loop tick if that event never comes. A listener of
     `AutoSaveWritePost` can tell a refused write: the buffer is still
     'modified'.
-  - |FileChangedShell| never prompts: an unmodified buffer is reloaded (or
-    asked about when 'autoread' is off), a modified or deleted one is left
-    alone with one warning. Detecting the change is nvim's job (|:checktime|).
+  - |FileChangedShell| never prompts: an unmodified buffer is reloaded when
+    'autoread' is on (or reload_unmodified is "always"), else left alone and
+    marked stale; a modified or deleted one is left alone with one warning. Detecting the change is nvim's job (|:checktime|).
   - After the first |LspAttach|, `vim.lsp.util.apply_workspace_edit` is wrapped:
     when the edit touches a file other than the current buffer, `save_all()`
     runs once the edit is applied.
