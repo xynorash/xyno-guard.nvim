@@ -51,7 +51,10 @@ function M.check()
         { "Pass condition = require('xyno_guard').can_save (or call it from yours)." }
       )
     else
-      h.warn("auto-save.nvim is loaded without a `condition`: the guard is not used", { "Pass condition = require('xyno_guard').can_save." })
+      h.warn(
+        "auto-save.nvim is loaded without a `condition`: the guard is not used",
+        { "Pass condition = require('xyno_guard').can_save." }
+      )
     end
   else
     h.info("auto-save.nvim is not loaded (nothing to check; the dependency lock and save_all() still work)")
@@ -66,8 +69,14 @@ function M.check()
   local stuck = g.stuck_nowrite()
   if #stuck > 0 then
     h.error(
-      ("%d buffer(s) are still 'buftype=nowrite' from a refused auto-save (a manual :w fails): %s"):format(#stuck, table.concat(stuck, ", ")),
-      { "Run :lua require('xyno_guard').restore_nowrite()", "Report it: AutoSaveWritePost never fired and the fallback timer did not run." }
+      ("%d buffer(s) are still 'buftype=nowrite' from a refused auto-save (a manual :w fails): %s"):format(
+        #stuck,
+        table.concat(stuck, ", ")
+      ),
+      {
+        "Run :lua require('xyno_guard').restore_nowrite()",
+        "Report it: AutoSaveWritePost never fired and the fallback timer did not run.",
+      }
     )
   else
     h.ok("no buffer is stuck in buftype=nowrite")
@@ -86,7 +95,10 @@ function M.check()
     end
   end
   if #stale > 0 then
-    h.warn("changed on disk, auto-save is paused for: " .. table.concat(stale, ", "), { ":e! takes the disk version, :w! keeps the buffer." })
+    h.warn(
+      "changed on disk, auto-save is paused for: " .. table.concat(stale, ", "),
+      { ":e! takes the disk version, :w! keeps the buffer." }
+    )
   end
   if #gone > 0 then
     h.warn("deleted on disk: " .. table.concat(gone, ", "), { ":w recreates the file." })

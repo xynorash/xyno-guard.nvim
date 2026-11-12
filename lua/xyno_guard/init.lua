@@ -265,7 +265,9 @@ local function disk_change(buf, name)
   local differs = tstr(st.mtime) ~= was
   if snap and not differs then
     local cmp = M.config.compare
-    differs = (cmp.size and st.size ~= snap.size) or (cmp.inode and st.ino ~= snap.ino) or (cmp.ctime and tstr(st.ctime) ~= snap.ctime)
+    differs = (cmp.size and st.size ~= snap.size)
+      or (cmp.inode and st.ino ~= snap.ino)
+      or (cmp.ctime and tstr(st.ctime) ~= snap.ctime)
   end
   if not differs then
     return nil, st
@@ -331,7 +333,11 @@ refresh = function(buf)
   local old = vim.b[buf].xyno_guard_state
   if state ~= old then
     vim.b[buf].xyno_guard_state = state
-    pcall(vim.api.nvim_exec_autocmds, "User", { pattern = "XynoGuardState", modeline = false, data = { buf = buf, state = state } })
+    pcall(
+      vim.api.nvim_exec_autocmds,
+      "User",
+      { pattern = "XynoGuardState", modeline = false, data = { buf = buf, state = state } }
+    )
   end
   for _, win in ipairs(vim.fn.win_findbuf(buf)) do
     apply_win(win, state)
@@ -420,13 +426,18 @@ function M.can_save(buf)
   refresh(buf)
   local short = vim.fn.fnamemodify(name, ":~:.")
   if change == "gone" then
-    warn_once(buf, "gone", short .. " no longer exists on disk: auto-save is paused for this buffer (:w to recreate it)")
+    warn_once(
+      buf,
+      "gone",
+      short .. " no longer exists on disk: auto-save is paused for this buffer (:w to recreate it)"
+    )
     return false
   elseif change == "stale" then
     warn_once(
       buf,
       st and change_key(st) or "stale",
-      short .. " changed on disk while this buffer has unsaved edits: auto-save is paused for it (:w! keeps the buffer, :e! takes the disk version)"
+      short
+        .. " changed on disk while this buffer has unsaved edits: auto-save is paused for it (:w! keeps the buffer, :e! takes the disk version)"
     )
     return false
   end
@@ -630,7 +641,10 @@ function M.setup(opts)
           vim.b[ev.buf].xyno_guard_warned = st and change_key(st) or "gone" -- can_save need not repeat it
           say(
             reason == "deleted" and (short .. " was deleted on disk (the buffer is kept)")
-              or (short .. " changed on disk and the buffer has unsaved edits (:e! takes the disk version, :w! keeps the buffer)"),
+              or (
+                short
+                .. " changed on disk and the buffer has unsaved edits (:e! takes the disk version, :w! keeps the buffer)"
+              ),
             vim.log.levels.WARN
           )
         elseif reason == "mode" then
@@ -643,7 +657,10 @@ function M.setup(opts)
           if not reload then
             vim.schedule(function()
               refresh(ev.buf)
-              say(short .. " changed on disk and was not reloaded ('autoread' is off): :e reloads it", vim.log.levels.INFO)
+              say(
+                short .. " changed on disk and was not reloaded ('autoread' is off): :e reloads it",
+                vim.log.levels.INFO
+              )
             end)
           end
         end

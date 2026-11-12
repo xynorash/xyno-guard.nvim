@@ -347,7 +347,8 @@ describe("xyno-guard statusline and highlights", function()
   end)
 
   it("groups exist, link to theme groups by default, and survive :hi clear", function()
-    local want = { XynoGuardDependency = "DiagnosticInfo", XynoGuardStale = "DiagnosticWarn", XynoGuardGone = "DiagnosticError" }
+    local want =
+      { XynoGuardDependency = "DiagnosticInfo", XynoGuardStale = "DiagnosticWarn", XynoGuardGone = "DiagnosticError" }
     for g, link in pairs(want) do
       H.eq(link, vim.api.nvim_get_hl(0, { name = g, link = true }).link)
     end
