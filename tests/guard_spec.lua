@@ -144,7 +144,6 @@ local function count_bufwritepost(buf)
   end
 end
 
-
 -- The plugin is set up once the way the README shows; every test starts with
 -- auto-save off (tests that need it switch it on) so a debounce timer cannot
 -- fire in the middle of a unit test.
@@ -280,22 +279,25 @@ describe("xyno-guard", function()
       H.eq(false, dg.is_dependency(rh .. "x/a.rs"))
     end)
 
-    it("8 a dependency buffer is nomodifiable and readonly; :set modifiable allows editing; can_save stays false", function()
-      local ch = H.tmpdir()
-      env("CARGO_HOME", ch)
-      local path = ch .. "/registry/src/index-1/c-1.0.0/src/lib.rs"
-      write(path, "pub fn a() {}\n")
-      local buf = H.open(path)
-      H.eq(false, vim.bo[buf].modifiable)
-      H.eq(true, vim.bo[buf].readonly)
-      H.throws(function()
-        set_lines(buf, { "nope" })
-      end, "modifiable")
-      vim.cmd("set modifiable")
-      set_lines(buf, { "// hacked" })
-      H.eq({ "// hacked" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
-      H.eq(false, dg.can_save(buf))
-    end)
+    it(
+      "8 a dependency buffer is nomodifiable and readonly; :set modifiable allows editing; can_save stays false",
+      function()
+        local ch = H.tmpdir()
+        env("CARGO_HOME", ch)
+        local path = ch .. "/registry/src/index-1/c-1.0.0/src/lib.rs"
+        write(path, "pub fn a() {}\n")
+        local buf = H.open(path)
+        H.eq(false, vim.bo[buf].modifiable)
+        H.eq(true, vim.bo[buf].readonly)
+        H.throws(function()
+          set_lines(buf, { "nope" })
+        end, "modifiable")
+        vim.cmd("set modifiable")
+        set_lines(buf, { "// hacked" })
+        H.eq({ "// hacked" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+        H.eq(false, dg.can_save(buf))
+      end
+    )
 
     it("8 setup() locks a dependency buffer that was loaded before it ran", function()
       local ch = H.tmpdir()
@@ -332,17 +334,20 @@ describe("xyno-guard", function()
       H.is_nil(vim.b[named_nofile].xyno_guard_stamp)
     end)
 
-    it("9 is false for an acwrite + readonly buffer like a plugin's prompt buffer (a :write raised a blocking confirm)", function()
-      local b = vim.api.nvim_create_buf(true, false)
-      vim.api.nvim_buf_set_name(b, "99-prompt")
-      vim.bo[b].buftype = "acwrite"
-      vim.api.nvim_buf_set_lines(b, 0, -1, false, { "x" })
-      H.eq(false, dg.can_save(b))
-      vim.bo[b].buftype = ""
-      vim.bo[b].readonly = true
-      H.eq(false, dg.can_save(b), "a readonly file buffer")
-      vim.api.nvim_buf_delete(b, { force = true })
-    end)
+    it(
+      "9 is false for an acwrite + readonly buffer like a plugin's prompt buffer (a :write raised a blocking confirm)",
+      function()
+        local b = vim.api.nvim_create_buf(true, false)
+        vim.api.nvim_buf_set_name(b, "99-prompt")
+        vim.bo[b].buftype = "acwrite"
+        vim.api.nvim_buf_set_lines(b, 0, -1, false, { "x" })
+        H.eq(false, dg.can_save(b))
+        vim.bo[b].buftype = ""
+        vim.bo[b].readonly = true
+        H.eq(false, dg.can_save(b), "a readonly file buffer")
+        vim.api.nvim_buf_delete(b, { force = true })
+      end
+    )
 
     it("9 records the mtime as sec.nsec on BufReadPost", function()
       local path, buf = open_file()
@@ -423,7 +428,8 @@ describe("xyno-guard", function()
       local path, buf = open_file()
       local cap = H.capture_notify()
       os.remove(path)
-      local msg = vim.fn.fnamemodify(path, ":~:.") .. " no longer exists on disk: auto-save is paused for this buffer (:w to recreate it)"
+      local msg = vim.fn.fnamemodify(path, ":~:.")
+        .. " no longer exists on disk: auto-save is paused for this buffer (:w to recreate it)"
       H.eq(false, dg.can_save(buf))
       H.eq(false, dg.can_save(buf))
       H.eq({ msg }, warnings(cap))
@@ -480,24 +486,27 @@ describe("xyno-guard", function()
       H.eq(stamp_of(path), vim.b[buf].xyno_guard_stamp)
     end)
 
-    it("13/14 a file changed inside the debounce window is not overwritten, no W12 prompt, buffer stays modified", function()
-      need_autosave()
-      local path, buf = open_file("one\n")
-      local cap = H.capture_notify()
-      H.clear_messages()
-      as().on()
-      set_lines(buf, { "mine" })
-      vim.api.nvim_exec_autocmds("TextChanged", { buffer = buf }) -- condition passes: timer starts
-      external_write(path, "theirs\n") -- ... then the file changes before the write
-      vim.wait(2000)
-      H.eq("theirs\n", read(path))
-      H.eq(true, vim.bo[buf].modified, "a refused write leaves modified=true")
-      H.eq("", vim.bo[buf].buftype)
-      H.is_nil(vim.b[buf].xyno_guard_buftype)
-      H.no_match(H.messages(), "Do you really want to write", true)
-      H.eq({ "mine" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
-      cap.restore()
-    end)
+    it(
+      "13/14 a file changed inside the debounce window is not overwritten, no W12 prompt, buffer stays modified",
+      function()
+        need_autosave()
+        local path, buf = open_file("one\n")
+        local cap = H.capture_notify()
+        H.clear_messages()
+        as().on()
+        set_lines(buf, { "mine" })
+        vim.api.nvim_exec_autocmds("TextChanged", { buffer = buf }) -- condition passes: timer starts
+        external_write(path, "theirs\n") -- ... then the file changes before the write
+        vim.wait(2000)
+        H.eq("theirs\n", read(path))
+        H.eq(true, vim.bo[buf].modified, "a refused write leaves modified=true")
+        H.eq("", vim.bo[buf].buftype)
+        H.is_nil(vim.b[buf].xyno_guard_buftype)
+        H.no_match(H.messages(), "Do you really want to write", true)
+        H.eq({ "mine" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+        cap.restore()
+      end
+    )
 
     it("14 a listener on AutoSaveWritePost tells a refused write by `modified` still being set", function()
       need_autosave()
@@ -559,7 +568,8 @@ describe("xyno-guard", function()
       vim.cmd("checktime")
       H.eq({ { reason = "conflict", choice = "" } }, seen)
       H.eq({
-        vim.fn.fnamemodify(path, ":~:.") .. " changed on disk and the buffer has unsaved edits (:e! takes the disk version, :w! keeps the buffer)",
+        vim.fn.fnamemodify(path, ":~:.")
+          .. " changed on disk and the buffer has unsaved edits (:e! takes the disk version, :w! keeps the buffer)",
       }, warnings(cap))
       H.eq({ "unsaved" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
       H.eq(false, dg.can_save(buf))
@@ -580,26 +590,33 @@ describe("xyno-guard", function()
       cap.restore()
     end)
 
-    it("15 other reasons: 'ask' without autoread (with autoread nvim reloads without the event)", function()
-      local path, buf = open_file()
-      local seen = spy()
-      local old = vim.o.autoread
-      H._restore[#H._restore + 1] = function()
+    it(
+      "15 other reasons: never 'ask' (a prompt); without autoread the buffer is left alone and marked stale",
+      function()
+        local path, buf = open_file()
+        local seen = spy()
+        local old = vim.o.autoread
+        H._restore[#H._restore + 1] = function()
+          vim.o.autoread = old
+        end
+        vim.o.autoread = true
+        external_write(path, "disk1\n")
+        vim.cmd("checktime")
+        H.eq({}, seen, "autoread: reloaded natively, no event")
+        H.eq({ "disk1" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+        vim.o.autoread = false
+        external_write(path, "disk2\n")
+        vim.cmd("checktime")
+        H.eq(1, #seen)
+        H.eq("", seen[1].choice, "no prompt")
+        H.wait_for(function()
+          return vim.b[buf].xyno_guard_state == "stale"
+        end, 2000, "buffer marked stale")
+        H.eq({ "disk1" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false), "left alone")
+        H.ok(seen[1].reason ~= "conflict" and seen[1].reason ~= "deleted")
         vim.o.autoread = old
       end
-      vim.o.autoread = true
-      external_write(path, "disk1\n")
-      vim.cmd("checktime")
-      H.eq({}, seen, "autoread: reloaded natively, no event")
-      H.eq({ "disk1" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
-      vim.o.autoread = false
-      external_write(path, "disk2\n")
-      vim.cmd("checktime")
-      H.eq(1, #seen)
-      H.eq("ask", seen[1].choice)
-      H.ok(seen[1].reason ~= "conflict" and seen[1].reason ~= "deleted")
-      vim.o.autoread = old
-    end)
+    )
 
     it("15 an unmodified buffer reloads after an external change and :checktime", function()
       local path, buf = open_file()
@@ -612,45 +629,47 @@ describe("xyno-guard", function()
       H.eq(stamp_of(path), vim.b[buf].xyno_guard_stamp)
       H.eq(true, dg.can_save(buf))
     end)
-
-
   end)
 
   -- ------------------------------------------------------- 17, 18, 20: save_all
   describe("save_all", function()
-    it("17 writes modified file buffers with events; skips unmodified, dependency and externally changed ones", function()
-      local ch = H.tmpdir()
-      env("CARGO_HOME", ch)
-      local dir = H.tmpdir()
-      local pa, pb, pc, pd, pe = dir .. "/a.txt", dir .. "/b.txt", dir .. "/c.txt", dir .. "/d.txt", ch .. "/registry/src/x/lib.rs"
-      write(pa, "a\n")
-      write(pb, "b\n")
-      write(pc, "c\n")
-      write(pd, "d\n")
-      write(pe, "e\n")
-      local ba, _, bc, _, be = H.open(pa), H.open(pb), H.open(pc), H.open(pd), H.open(pe)
-      local logs = fake_lsp(ba, "fake-save", { includeText = false })
-      local npost = count_bufwritepost(ba)
-      set_lines(ba, { "A" }) -- modified: written
-      set_lines(bc, { "C" }) -- modified but changed on disk: skipped
-      external_write(pc, "C-disk\n")
-      vim.cmd("set modifiable") -- dependency buffer made editable on purpose
-      set_lines(be, { "E" }) -- modified dependency: skipped
-      -- bb, bd unmodified: untouched
-      local mt = stamp_of(pb)
-      dg.save_all()
-      H.eq("A\n", read(pa))
-      H.eq("b\n", read(pb))
-      H.eq("C-disk\n", read(pc))
-      H.eq("d\n", read(pd))
-      H.eq("e\n", read(pe))
-      H.eq(mt, stamp_of(pb))
-      H.not_ok(vim.bo[ba].modified)
-      H.ok(vim.bo[bc].modified)
-      H.ok(vim.bo[be].modified)
-      H.eq(1, npost(), "BufWritePost fired (write, not noautocmd)")
-      H.eq(1, count(logs, "textDocument/didSave"), "didSave was sent")
-    end)
+    it(
+      "17 writes modified file buffers with events; skips unmodified, dependency and externally changed ones",
+      function()
+        local ch = H.tmpdir()
+        env("CARGO_HOME", ch)
+        local dir = H.tmpdir()
+        local pa, pb, pc, pd, pe =
+          dir .. "/a.txt", dir .. "/b.txt", dir .. "/c.txt", dir .. "/d.txt", ch .. "/registry/src/x/lib.rs"
+        write(pa, "a\n")
+        write(pb, "b\n")
+        write(pc, "c\n")
+        write(pd, "d\n")
+        write(pe, "e\n")
+        local ba, _, bc, _, be = H.open(pa), H.open(pb), H.open(pc), H.open(pd), H.open(pe)
+        local logs = fake_lsp(ba, "fake-save", { includeText = false })
+        local npost = count_bufwritepost(ba)
+        set_lines(ba, { "A" }) -- modified: written
+        set_lines(bc, { "C" }) -- modified but changed on disk: skipped
+        external_write(pc, "C-disk\n")
+        vim.cmd("set modifiable") -- dependency buffer made editable on purpose
+        set_lines(be, { "E" }) -- modified dependency: skipped
+        -- bb, bd unmodified: untouched
+        local mt = stamp_of(pb)
+        dg.save_all()
+        H.eq("A\n", read(pa))
+        H.eq("b\n", read(pb))
+        H.eq("C-disk\n", read(pc))
+        H.eq("d\n", read(pd))
+        H.eq("e\n", read(pe))
+        H.eq(mt, stamp_of(pb))
+        H.not_ok(vim.bo[ba].modified)
+        H.ok(vim.bo[bc].modified)
+        H.ok(vim.bo[be].modified)
+        H.eq(1, npost(), "BufWritePost fired (write, not noautocmd)")
+        H.eq(1, count(logs, "textDocument/didSave"), "didSave was sent")
+      end
+    )
 
     it("17 skips unloaded, non-file and nomodifiable buffers", function()
       local path, buf = open_file("x\n")
@@ -740,19 +759,27 @@ describe("xyno-guard", function()
           return dg._calls() == 1
         end, 2000, "save_all after documentChanges")
         local created = dir .. "/new.txt"
-        vim.lsp.util.apply_workspace_edit({ documentChanges = { { kind = "create", uri = vim.uri_from_fname(created) } } }, "utf-16")
+        vim.lsp.util.apply_workspace_edit(
+          { documentChanges = { { kind = "create", uri = vim.uri_from_fname(created) } } },
+          "utf-16"
+        )
         H.wait_for(function()
           return dg._calls() == 2
         end, 2000, "save_all after create")
         H.ok(vim.uv.fs_stat(created), "the create was applied")
         local renamed = dir .. "/renamed.txt"
         vim.lsp.util.apply_workspace_edit({
-          documentChanges = { { kind = "rename", oldUri = vim.uri_from_fname(created), newUri = vim.uri_from_fname(renamed) } },
+          documentChanges = {
+            { kind = "rename", oldUri = vim.uri_from_fname(created), newUri = vim.uri_from_fname(renamed) },
+          },
         }, "utf-16")
         H.wait_for(function()
           return dg._calls() == 3
         end, 2000, "save_all after rename")
-        vim.lsp.util.apply_workspace_edit({ documentChanges = { { kind = "delete", uri = vim.uri_from_fname(renamed) } } }, "utf-16")
+        vim.lsp.util.apply_workspace_edit(
+          { documentChanges = { { kind = "delete", uri = vim.uri_from_fname(renamed) } } },
+          "utf-16"
+        )
         H.wait_for(function()
           return dg._calls() == 4
         end, 2000, "save_all after delete")
